@@ -182,3 +182,123 @@ Add a cronjob to update the mirror after a few hours.
 0 */6 * * * /usr/bin/debmirror
 ```
 
+## Setting up the Webpage
+
+Install Apache.
+```
+apt-get update
+apt-get install apache2
+```
+
+Create a new virtual host file for the mirror. This can be done by creating a new file in the `/etc/apache2/sites-available/` directory.
+```
+vim/etc/apache2/sites-available/debian-mirror.cloud.mu.conf
+```
+
+Content of `debian-mirror.cloud.mu.conf` config file:
+```
+<VirtualHost *:80>
+        ServerName debian-mirror.cloud.mu
+        ServerAdmin webmaster@localhost
+        
+        Redirect permanent / https://debian-mirror.cloud.mu
+        DocumentRoot /vol-mirror/debian-mirror
+        <Directory />
+                Options FollowSymLinks
+                AllowOverride None
+        </Directory>
+        <Directory /vol-mirror/debian-mirror>
+                Options Indexes FollowSymLinks MultiViews
+                AllowOverride All
+                Order allow,deny
+                allow from all
+                Require all granted
+        </Directory>
+
+        Alias "/debian" "/vol-mirror/debian-mirror"
+
+        ErrorLog /var/log/apache2/debian-mirror.cloud.mu-error.log
+
+        # Possible values include: debug, info, notice, warn, error, crit,
+        # alert, emerg.
+        LogLevel warn
+
+        CustomLog /var/log/apache2/debian-mirror.cloud.mu-access.log combined
+        ServerSignature On
+
+</VirtualHost>
+<VirtualHost *:443>
+        ServerName debian-mirror.cloud.mu
+        ServerAdmin webmaster@localhost
+
+        DocumentRoot /vol-mirror/debian-mirror
+
+        SSLEngine on
+        SSLCertificateFile /etc/letsencrypt/live/debian-mirror.cloud.mu/fullchain.pem
+        SSLCertificateKeyFile /etc/letsencrypt/live/debian-mirror.cloud.mu/privkey.pem
+
+        <Directory />
+                Options FollowSymLinks
+                AllowOverride None
+        </Directory>
+        <Directory /vol-mirror/debian-mirror>
+                Options Indexes FollowSymLinks MultiViews
+                AllowOverride All
+                Order allow,deny
+                allow from all
+                Require all granted
+        </Directory>
+
+        Alias "/debian" "/vol-mirror/debian-mirror"
+
+        ErrorLog /var/log/apache2/debian-mirror.cloud.mu-error.log
+
+        # Possible values include: debug, info, notice, warn, error, crit,
+        # alert, emerg.
+        LogLevel warn
+
+        CustomLog /var/log/apache2/debian-mirror.cloud.mu-access.log combined
+        ServerSignature On
+
+</VirtualHost>
+```
+
+Enable the virtual host and restart Apache:
+```
+a2ensite debian-mirror.cloud.mu.conf
+systemctl restart apache2
+
+```
+
+### Setting up Let's Encrypt SSL/TLS certificate 
+
+Install Certbot, the official Let's Encrypt client.
+```
+sudo apt-get update
+sudo apt-get install certbot python3-certbot-apache
+```
+
+Run Certbot to obtain an SSL/TLS certificate for your domain.
+```
+certbot --apache
+```
+Follow the on-screen instructions to enter your email address, agree to the terms of service, and select the domain(s) you want to secure. Certbot will automatically configure Apache to use HTTPS 
+
+
+After obtaining a Let's Encrypt SSL/TLS certificate for the mirror website using Certbot, the certificate and private key will be automatically installed in `/etc/letsencrypt/live/debian-mirror.cloud.mu/`.
+
+
+Add certificate and private key to apache config file.
+
+As shown in the `debian-mirror.cloud.mu` config file above, the certificate is located in the 443 code block.
+```
+        SSLEngine on
+        SSLCertificateFile /etc/letsencrypt/live/debian-mirror.cloud.mu/fullchain.pem
+        SSLCertificateKeyFile /etc/letsencrypt/live/debian-mirror.cloud.mu/privkey.pem
+```
+Restart Apache to apply the changes.
+```
+systemctl restart apache2
+```
+
+
